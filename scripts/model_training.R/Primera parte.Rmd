@@ -1,0 +1,702 @@
+---
+title: "Practica-3-18122022"
+author: "Brian Abad Guadalupe"
+date: "2024-12-18"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    number_sections: true
+---
+# Introducción
+
+El objetivo de este análisis es realizar una regresión logística para determinar los factores que influyen en si una persona ha realizado un trabajo remunerado la semana anterior (`TRAREM`), en función de variables demográficas y de formación.
+
+Las variables seleccionadas son:  
+- **Género** (`SEXO1`)  
+- **Edad** (`EDADNum`)  
+- **Estado Civil** (`ECIV1`)  
+- **Nacionalidad** (`NAC1`)  
+- **Nivel de formación** (`NFORMA`)  
+- **Edad del máximo nivel educativo** (`EDADEST`)  
+
+El análisis se realiza únicamente con los datos del 1º, 2º y 3º trimestre de 2023 y para personas mayores de 16 años.
+
+## Carga de datos y librerías
+
+```{r carga-datos-librerías, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Cargar librerías necesarias
+library(dplyr)
+library(ggplot2)
+library(caret)
+
+# Cargar los microdatos
+load("C:/Users/ASUS/Desktop/MicrodatosEPA.Rdata")
+```
+
+```{r Preparar-datos, message=FALSE, warning=FALSE, cache=TRUE}
+
+#Prepar datos
+
+# Filtrar datos válidos (1º, 2º, 3º trimestres de 2023 y mayores de 16 años)
+datos_modelo <- Microdatos %>%
+  filter(TRIM %in% c(1, 2, 3) & ANYO == 2023 & EDADNum > 16) %>%
+  mutate(TRAREM = ifelse(TRAREM == "Sí", 1, 0)) %>%  # Convertir a binario
+  select(TRAREM, SEXO1, EDADNum, ECIV1, NAC1, NFORMA, EDADEST)
+
+# Verificar que TRAREM es binario
+table(datos_modelo$TRAREM)
+```
+
+# **Comentar los resultados de la regresión. Interpreta el coeficiente de género y el de edad.** 
+
+```{r Entrenar-modelo, message=FALSE, warning=FALSE, cache=TRUE}
+
+#ENTRENAR AL MODELO
+
+# Fijar la semilla para reproducibilidad
+set.seed(11631)
+
+# Ajustar el modelo de regresión logística
+modelo_logistico <- glm(TRAREM ~ SEXO1 + EDADNum + ECIV1 + NAC1 + NFORMA + EDADEST, 
+                        data = datos_modelo, 
+                        family = binomial)
+
+# Resumen del modelo
+summary(modelo_logistico)
+```
+## Resultados de la Regresión Logística
+
+La regresión logística estima la probabilidad de **haber realizado un trabajo remunerado (TRAREM = 1)** en función de variables demográficas y de formación. A continuación, se interpretan los resultados más relevantes:
+
+---
+
+### Interpretación general
+- Los **coeficientes** (`Estimate`) indican el efecto de cada variable en las **log-odds** (logaritmo de las probabilidades) de realizar un trabajo remunerado.
+   - **Signo positivo**: Aumenta la probabilidad de `TRAREM = 1`.
+   - **Signo negativo**: Reduce la probabilidad de `TRAREM = 1`.
+- Todos los **p-valores** son **significativamente bajos** (`<2e-16`), indicando que todas las variables incluidas en el modelo son **estadísticamente significativas**.
+
+---
+
+### Resultados por variable
+
+- **Intercepto**:  
+   - **Coeficiente**: -0.9017  
+   - Representa las log-odds cuando todas las variables predictoras son cero.
+
+- **SEXO1Mujer**:  
+   - **Coeficiente**: -0.4262  
+   - Ser **mujer** reduce la probabilidad de trabajar remuneradamente en comparación con los hombres.
+
+- **EDADNum (Edad)**:  
+   - **Coeficiente**: -0.0324  
+   - A medida que **aumenta la edad**, disminuye ligeramente la probabilidad de trabajar remuneradamente.
+
+- **Estado Civil (ECIV1)**:  
+   - **Casado**: **0.6855** → Aumenta la probabilidad.  
+   - **Viudo**: **-0.8169** → Reduce la probabilidad.  
+   - **Separado o divorciado**: **0.8515** → Aumenta la probabilidad.  
+
+   - **Interpretación**: Estar casado o divorciado/separado favorece la probabilidad de trabajar, mientras que ser viudo reduce esta probabilidad.
+
+- **Nacionalidad (NAC1)**:  
+   - **Española y doble nacionalidad**: **0.5469**  
+   - **Extranjera**: **0.4170**  
+
+   - Tener **nacionalidad española o doble** aumenta más la probabilidad que tener nacionalidad extranjera.
+
+- **Nivel de Formación (NFORMA)**:  
+   - A medida que aumenta el **nivel educativo**, aumenta significativamente la probabilidad de trabajar.  
+     - **Primera etapa secundaria**: **1.5499**  
+     - **Segunda etapa secundaria (general)**: **1.5268**  
+     - **Segunda etapa secundaria (profesional)**: **2.2041**  
+     - **Educación superior**: **2.5271**  
+
+   - **Conclusión**: La **educación superior** tiene el efecto más fuerte y positivo.
+
+- **EDADEST (Edad de finalización de estudios)**:  
+   - **Coeficiente**: 0.0081  
+   - Aumenta ligeramente la probabilidad de trabajar remuneradamente.
+
+---
+
+### Conclusiones principales
+- Ser **mujer** y tener mayor **edad** reducen la probabilidad de trabajar remuneradamente.  
+- El **nivel educativo** es el **factor más determinante**: a mayor formación, mayor es la probabilidad de empleo remunerado.  
+- El **estado civil** y la **nacionalidad** también influyen significativamente en la probabilidad de trabajo.  
+- Las variables son **estadísticamente significativas**, como lo demuestra el bajo p-valor (`<2e-16`).
+
+
+```{r Preparar-modelo, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Filtrar datos del 4º trimestre
+datos_4T2023 <- Microdatos %>%
+  filter(TRIM == 4 & ANYO == 2023 & EDADNum > 16) %>%
+  mutate(TRAREM = ifelse(TRAREM == "Sí", 1, 0)) %>%  # Convertir a binario
+  select(TRAREM, SEXO1, EDADNum, ECIV1, NAC1, NFORMA, EDADEST)
+
+# Verificar la tabla de TRAREM
+table(datos_4T2023$TRAREM)
+
+#GENERAR PREDICCIONES
+# Filtrar datos del 4º trimestre
+datos_4T2023 <- Microdatos %>%
+  filter(TRIM == 4 & ANYO == 2023 & EDADNum > 16) %>%
+  mutate(TRAREM = ifelse(TRAREM == "Sí", 1, 0)) %>%  # Convertir a binario
+  select(TRAREM, SEXO1, EDADNum, ECIV1, NAC1, NFORMA, EDADEST)
+
+# Verificar la tabla de TRAREM
+table(datos_4T2023$TRAREM)
+
+# Alinear los niveles de las variables categóricas
+datos_4T2023$SEXO1 <- factor(datos_4T2023$SEXO1, levels = levels(datos_modelo$SEXO1))
+datos_4T2023$ECIV1 <- factor(datos_4T2023$ECIV1, levels = levels(datos_modelo$ECIV1))
+datos_4T2023$NFORMA <- factor(datos_4T2023$NFORMA, levels = levels(datos_modelo$NFORMA))
+datos_4T2023$NAC1 <- factor(datos_4T2023$NAC1, levels = levels(datos_modelo$NAC1))
+
+# Generar predicciones nuevamente
+datos_4T2023$Predicciones <- predict(modelo_logistico, newdata = datos_4T2023, type = "response")
+
+# Verificar las predicciones
+summary(datos_4T2023$Predicciones)
+
+# Ajustar el umbral
+umbral_optimo <- 0.3
+datos_4T2023$Predicho <- ifelse(datos_4T2023$Predicciones >= umbral_optimo, 1, 0)
+
+# Confirmar que Predicho tiene valores
+table(datos_4T2023$Predicho)
+
+# Crear la matriz de confusión
+library(caret)
+
+# Asegurarse de que las columnas sean factores con niveles 0 y 1
+datos_4T2023$TRAREM <- factor(datos_4T2023$TRAREM, levels = c(0, 1))
+datos_4T2023$Predicho <- factor(datos_4T2023$Predicho, levels = c(0, 1))
+
+# Generar la matriz de confusión
+confusion <- confusionMatrix(datos_4T2023$Predicho, datos_4T2023$TRAREM, positive = "1")
+
+# Mostrar la matriz de confusión
+print(confusion)
+
+# Extraer métricas de rendimiento
+cat("Sensibilidad:", round(confusion$byClass["Sensitivity"], 4), "\n")
+cat("Especificidad:", round(confusion$byClass["Specificity"], 4), "\n")
+cat("Precisión:", round(confusion$byClass["Pos Pred Value"], 4), "\n")
+cat("Accuracy:", round(confusion$overall["Accuracy"], 4), "\n")
+```
+
+# **Dibujar la curva ROC del modelo y calcular el área bajo la curva.**
+
+```{r ROC-AUC, message=FALSE, warning=FALSE, cache=TRUE}
+
+#Dibujar la curva ROC del modelo y calcular el área bajo la curva.
+
+# Librería para ROC y AUC
+library(pROC)
+
+# Calcular la curva ROC
+roc_obj <- roc(datos_4T2023$TRAREM, datos_4T2023$Predicciones)
+
+# Dibujar la curva ROC
+plot(roc_obj, col = "blue", main = "Curva ROC")
+auc_value <- auc(roc_obj)
+cat("Área bajo la curva (AUC):", round(auc_value, 4), "\n")
+
+# Gráfico de densidad de probabilidades
+ggplot(datos_4T2023, aes(x = Predicciones, fill = TRAREM)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Distribución de Probabilidades por Clase",
+       x = "Probabilidad Predicha",
+       y = "Densidad",
+       fill = "TRAREM") +
+  theme_minimal()
+
+```
+
+```{r encontrar el umbral óptimo, message=FALSE, warning=FALSE, cache=TRUE}
+# Librería necesaria
+library(caret)
+
+# Secuencia de umbrales a evaluar
+umbrales <- seq(0.1, 0.5, by = 0.05)
+
+# Crear un dataframe para almacenar resultados
+resultados <- data.frame(Umbral = umbrales, Sensibilidad = NA, Especificidad = NA, Accuracy = NA)
+
+# Calcular métricas para cada umbral
+for (i in 1:length(umbrales)) {
+  threshold <- umbrales[i]
+  
+  # Generar predicciones binarias según el umbral
+  datos_4T2023$Predicho <- ifelse(datos_4T2023$Predicciones >= threshold, 1, 0)
+  
+  # Matriz de confusión
+  confusion <- confusionMatrix(factor(datos_4T2023$Predicho, levels = c(0, 1)), 
+                               factor(datos_4T2023$TRAREM, levels = c(0, 1)), 
+                               positive = "1")
+  
+  # Guardar métricas
+  resultados$Sensibilidad[i] <- confusion$byClass["Sensitivity"]
+  resultados$Especificidad[i] <- confusion$byClass["Specificity"]
+  resultados$Accuracy[i] <- confusion$overall["Accuracy"]
+}
+
+# Mostrar resultados
+print(resultados)
+
+```
+Ajustar el umbral a 0.45 logra el mejor equilibrio para este modelo, permitiendo una clasificación aceptable tanto de positivos como de negativos.
+
+```{r ggplot, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+# Convertir resultados a formato largo para ggplot
+library(tidyr)
+library(ggplot2)
+
+resultados_long <- pivot_longer(resultados, cols = c(Sensibilidad, Especificidad, Accuracy),
+                                names_to = "Metrica", values_to = "Valor")
+
+# Graficar las métricas
+ggplot(resultados_long, aes(x = Umbral, y = Valor, color = Metrica)) +
+  geom_line(size = 1) +
+  labs(title = "Ajuste del Umbral de Clasificación",
+       x = "Umbral",
+       y = "Valor de la Métrica") +
+  theme_minimal()
+
+```
+
+# **Predecir TRAREM de los datos del 4º trimestre de 2023 y compárelos con los observados. Comentar los resultados.**
+
+```{r Umbral-óptimo, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Ajustar el umbral a 0.45
+umbral_optimo <- 0.45
+
+# Generar predicciones binarias basadas en el umbral
+datos_4T2023$Predicho <- ifelse(datos_4T2023$Predicciones >= umbral_optimo, 1, 0)
+
+# Asegurarse de que las columnas sean factores con niveles correctos
+datos_4T2023$TRAREM <- factor(datos_4T2023$TRAREM, levels = c(0, 1))
+datos_4T2023$Predicho <- factor(datos_4T2023$Predicho, levels = c(0, 1))
+
+# Generar la matriz de confusión
+library(caret)
+confusion_final <- confusionMatrix(datos_4T2023$Predicho, datos_4T2023$TRAREM, positive = "1")
+
+# Mostrar la matriz de confusión y las métricas
+print(confusion_final)
+
+```
+
+
+```{r Métricas, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+# Extraer métricas importantes
+cat("Sensibilidad:", round(confusion_final$byClass["Sensitivity"], 4), "\n")
+cat("Especificidad:", round(confusion_final$byClass["Specificity"], 4), "\n")
+cat("Accuracy:", round(confusion_final$overall["Accuracy"], 4), "\n")
+
+```
+
+## Comentario de resultados
+
+- La **matriz de confusión** muestra que el modelo predice correctamente una proporción significativa de los valores positivos y negativos.
+- La **sensibilidad** indica qué tan bien el modelo detecta a las personas que han trabajado remuneradamente (`TRAREM = 1`).
+- La **especificidad** refleja la capacidad para identificar a las personas que **no** han trabajado (`TRAREM = 0`).
+- La **accuracy** proporciona una visión general del rendimiento global.
+
+Al ajustar el umbral a **0.45**, hemos logrado un equilibrio adecuado entre sensibilidad y especificidad, lo que mejora el rendimiento del modelo en la clasificación de ambas clases.
+
+
+# **Si consideramos los datos de toda la población, la proporción que ha realizado un trabajo remunerado la semana anterior es del 45,94% en el 1º, 2º y 3º trimestre de 2023. ¿Cómo puede afectar esa información a la regresión logística estimada?**
+
+## Impacto de la proporción de la población en la Regresión Logística
+
+La información de que **el 45,94% de la población ha realizado un trabajo remunerado la semana anterior** en el 1º, 2º y 3º trimestre de 2023 tiene implicaciones importantes para la regresión logística estimada:
+
+1. **Distribución Desbalanceada de la Variable Dependiente**:
+   - La variable `TRAREM` presenta una proporción cercana a **46% de "Sí" (1)** y **54% de "No" (0)**.
+   - Aunque no es extremadamente desbalanceada, esta distribución aún puede afectar el rendimiento del modelo. La regresión logística podría **favorecer** la predicción de la clase mayoritaria (0 = "No") en detrimento de la clase minoritaria (1 = "Sí").
+
+2. **Impacto en el Umbral de Clasificación**:
+   - El umbral estándar de **0.5** podría no ser óptimo, como se ha observado anteriormente.
+   - Dado que la proporción de casos positivos es menor al 50%, ajustar el umbral (por ejemplo, a **0.45**) permite capturar más casos de la clase positiva sin sacrificar demasiado la precisión global.
+
+3. **Interpretación de los Coeficientes**:
+   - La regresión logística modela la **probabilidad de que `TRAREM = 1`** (trabajo remunerado).  
+   - Si la proporción de la clase positiva es baja, los **coeficientes de las variables predictoras** podrían reflejar **menor variabilidad** para explicar la clase positiva.
+
+4. **Implicación en la Calidad del Modelo**:
+   - La menor proporción de positivos puede limitar la capacidad del modelo para aprender patrones específicos de la clase `1`.
+   - Métricas como la **sensibilidad** podrían ser más bajas si no se ajusta el modelo adecuadamente.
+
+
+# Realiza un análisis lineal discriminante para clasificar a los entrevistados en relación con la actividad económica (AOI) usando los mismos predictores que en el ejercicio anterior y con los datos del 1º, 2º y 3º trimestre de 2023.
+
+##  **Comentar los resultados del LDA.**
+
+```{r segundo ejercicio, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Filtrar los datos para el 1º, 2º y 3º trimestre de 2023 y mayores de 16 años
+datos_lda <- Microdatos %>%
+  filter(TRIM %in% c(1, 2, 3) & ANYO == 2023 & EDADNum > 16) %>%
+  select(AOI, SEXO1, EDADNum, ECIV1, NAC1, NFORMA, EDADEST)
+
+# Convertir AOI (variable dependiente) a factor si no lo es
+datos_lda$AOI <- as.factor(datos_lda$AOI)
+
+# Verificar las primeras filas del conjunto de datos
+head(datos_lda)
+
+
+```
+```{r LDA, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Cargar librería necesaria
+library(MASS)
+
+# Ajustar el modelo LDA
+modelo_lda <- lda(AOI ~ SEXO1 + EDADNum + ECIV1 + NAC1 + NFORMA + EDADEST, data = datos_lda)
+
+# Resumen del modelo
+print(modelo_lda)
+
+# Generar predicciones
+predicciones_lda <- predict(modelo_lda, newdata = datos_lda)
+
+# Crear la matriz de confusión
+library(caret)
+confusion_lda <- confusionMatrix(predicciones_lda$class, datos_lda$AOI)
+
+# Imprimir la matriz de confusión y métricas clave
+print(confusion_lda)
+
+```
+### Comentarios de los Resultados del LDA
+
+1. Coeficientes de los Discriminantes:
+   - Los coeficientes asociados a cada predictor indican la importancia relativa de cada variable en la diferenciación de las categorías de `AOI` (Actividad Económica).
+   - Variables como `EDADNum` (edad) y `NFORMA` (nivel de formación) tienden a tener mayor peso, ya que están relacionadas directamente con la actividad económica.
+
+2. Matriz de Confusión:
+   - La matriz de confusión muestra cómo el modelo clasifica las observaciones en las categorías de `AOI`.
+   - Métricas como **accuracy** (precisión general), **sensibilidad** (detección correcta de categorías específicas) y **especificidad** (identificación correcta de no pertenecientes) ofrecen un resumen cuantitativo del rendimiento del modelo.
+
+3. Conclusión General:
+   - El modelo LDA proporciona una buena aproximación inicial para clasificar la actividad económica (`AOI`) basada en los predictores demográficos y de formación.
+   
+   
+# **Llevar a cabo el contraste de homogeneidad de Bartlett y el contraste M-Box sobre las dos variables numéricas según la variable de respuesta. Si la conclusión así lo indica, realizar el análisis discriminante cuadrático con validación cruzada.** 
+
+```{r Contraste de homogeneidad de Bartlett, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Cargar librerías necesarias
+library(car)
+
+# Seleccionar las dos variables numéricas y la variable de respuesta
+variables_numericas <- datos_lda[, c("EDADNum", "EDADEST")]
+respuesta <- datos_lda$AOI
+
+# Realizar el contraste de Bartlett para cada variable numérica
+bartlett_test_EDADNum <- bartlett.test(variables_numericas$EDADNum ~ respuesta)
+bartlett_test_EDADEST <- bartlett.test(variables_numericas$EDADEST ~ respuesta)
+
+# Mostrar resultados
+print(bartlett_test_EDADNum)
+print(bartlett_test_EDADEST)
+
+```
+Dado que el p-valor < 0.05, rechazamos la hipótesis nula de igualdad de varianzas. Esto significa que las varianzas de EDADEST entre las diferentes categorías de respuesta no son homogéneas. El rechazo de la hipótesis de homogeneidad de varianzas indica que las suposiciones para un Análisis Lineal Discriminante (LDA) no se cumplen para esta variable.
+
+---------------------------------------------------------------
+```{r Contraste M-BOX, echo=FALSE, message=FALSE, warning=FALSE, error=TRUE}
+
+# Cargar librería necesaria
+library(biotools)
+
+# Realizar el contraste M-Box
+m_box_test <- boxM(variables_numericas, respuesta)
+
+# Mostrar resultados
+print(m_box_test)
+
+```
+Dado que el p-valor < 0.05, rechazamos la hipótesis nula de homogeneidad de las matrices de covarianzas. El rechazo de la hipótesis nula confirma que el análisis discriminante lineal (LDA) no es adecuado debido a la falta de homogeneidad en las matrices de covarianzas. Se debe optar por un Análisis Discriminante Cuadrático (QDA), que no requiere esta suposición.
+
+
+```{r QDA, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Cargar librería necesaria
+library(MASS)
+
+# Realizar el análisis discriminante cuadrático
+modelo_qda <- qda(AOI ~ SEXO1 + EDADNum + ECIV1 + NAC1 + NFORMA + EDADEST, data = datos_lda, CV = TRUE)
+
+# Mostrar resultados del QDA
+#print(modelo_qda)
+
+# Validación cruzada
+qda_cv <- modelo_qda$class
+
+# Generar matriz de confusión
+#library(caret)
+#confusion_qda <- confusionMatrix(qda_cv, datos_lda$AOI)
+
+```
+
+El QDA tiene un rendimiento desigual, con mejor desempeño en clases más prevalentes o con mayor diferenciación (por ejemplo, Resto de ocupados).Las clases con baja prevalencia o características menos diferenciadas tienen un desempeño pobre, reflejado en sensibilidades muy bajas.Este resultado puede estar influenciado por desequilibrios en los datos y diferencias significativas entre las clases.
+
+
+# **Predice AOI de los datos del 4º trimestre de 2023 con el modelo más adecuado y compárelos con los observados. Comentar los resultados.**
+
+```{r Predecir AOI, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# Filtrar datos del 4º trimestre
+datos_4T2023 <- Microdatos %>%
+  dplyr::filter(TRIM == 4) %>%
+  dplyr::select(SEXO1, EDADNum, ECIV1, NAC1, NFORMA, EDADEST, AOI)
+
+sum(is.na(datos_4T2023))
+
+modelo_qda <- qda(AOI ~ SEXO1 + EDADNum + ECIV1 + NAC1 + NFORMA + EDADEST, data = datos_lda)
+
+# Predecir AOI
+predicciones_qda <- predict(modelo_qda, datos_4T2023)
+
+# Añadir predicciones a los datos
+datos_4T2023 <- datos_4T2023 %>%
+  mutate(Predicho = predicciones_qda$class)
+
+# Verificar las primeras filas
+head(datos_4T2023)
+
+# Cargar caret para la matriz de confusión
+library(caret)
+
+# Crear la matriz de confusión
+confusion <- confusionMatrix(
+  as.factor(datos_4T2023$Predicho),
+  as.factor(datos_4T2023$AOI)
+)
+
+# Mostrar resultados
+print(confusion)
+
+```
+# Resultados del QDA
+
+## Estadísticas Generales
+
+- **Precisión Global (Accuracy):** La precisión del modelo es del 57.3%, lo que indica una moderada capacidad de clasificar correctamente las categorías. 
+- **Índice de Kappa:** El índice Kappa es de 0.3098, lo que indica una concordancia ligera entre las predicciones del modelo y las categorías reales.
+- **P-Value [Acc > NIR]:** El valor p (< 2.2e-16) sugiere que el modelo predice mejor que un clasificador aleatorio.
+
+---
+
+## Estadísticas por Clase
+
+### Clase: Ocupados subempleados por insuficiencia de horas
+- **Sensibilidad:** 10.5%, lo que indica que el modelo identifica pocos casos de esta categoría.
+- **Especificidad:** 96.3%, el modelo clasifica bien los casos que no pertenecen a esta clase.
+- **Precisión Positiva (PPV):** 9.5%, baja precisión en identificar correctamente esta clase.
+- **Balanced Accuracy:** 53.4%, una capacidad apenas superior al azar para clasificar esta clase.
+
+### Clase: Resto de ocupados
+- **Sensibilidad:** 85.4%, una buena capacidad para identificar esta clase.
+- **Especificidad:** 53.9%, limitada capacidad para descartar otros casos.
+- **Balanced Accuracy:** 69.7%, mejor que la mayoría de las clases.
+
+### Clase: Parados que buscan primer empleo
+- **Sensibilidad:** 49.8%, indicando una capacidad moderada para identificar esta clase.
+- **Especificidad:** 89.5%, alta capacidad para excluir otros casos.
+- **Balanced Accuracy:** 69.7%, una moderada capacidad de clasificación.
+
+### Clase: Parados que han trabajado antes
+- **Sensibilidad:** 2.3%, muy baja capacidad para identificar esta clase.
+- **Especificidad:** 98.9%, alta capacidad para excluir otros casos.
+- **Balanced Accuracy:** 50.6%, rendimiento apenas superior al azar.
+
+### Clase: Inactivos 1 (desanimados)
+- **Sensibilidad:** 0.5%, muy baja capacidad para identificar esta clase.
+- **Especificidad:** 99.9%, excelente capacidad para excluir otros casos.
+- **Balanced Accuracy:** 50.2%, prácticamente equivalente al azar.
+
+### Clase: Inactivos 2 (activos potenciales)
+- **Sensibilidad:** 0%, no se identificaron casos de esta clase.
+- **Especificidad:** 100%, pero la clase no fue detectada en las predicciones.
+- **Balanced Accuracy:** 50%, incapacidad total del modelo para clasificar esta clase.
+
+### Clase: Inactivos 3 (resto de inactivos)
+- **Sensibilidad:** 40.4%, moderada capacidad para identificar esta clase.
+- **Especificidad:** 95.6%, alta capacidad para excluir otros casos.
+- **Balanced Accuracy:** 68%, rendimiento aceptable en esta categoría.
+
+---
+
+## Comentarios Finales
+
+El modelo tiene un rendimiento aceptable para las clases más predominantes como "Resto de Ocupados" e "Inactivos 3", pero muestra limitaciones significativas para clasificar clases minoritarias como "Inactivos 1" o "Parados que han trabajado antes". Esto puede deberse a la distribución desbalanceada de las categorías, donde algunas clases tienen muy pocos casos en comparación con otras.
+
+Para mejorar los resultados:
+1. Se podría aplicar técnicas para balancear las clases, como el sobremuestreo o submuestreo.
+2. Evaluar un modelo más robusto o realizar transformaciones adicionales de los datos.
+3. Analizar las variables predictoras para identificar posibles mejoras en la selección de predictores relevantes.
+
+
+# **Estudiar mediante árboles de regresión la antigüedad en la empresa (variable DCOM) con los datos del 1º, 2º y 3º trimestre de 2023 usando como predictores aquellos que se consideren dentro de los datos demográficos, de formación o trabajo dentro de la semana de referencia (columnas de la 1 a la 43 del data frame). Predecir DCOM de los datos del 4º trimestre de 2023 mediante bosques aleatorios y boosting. Comentar los resultados.**
+
+```{r DCOM, message=FALSE, warning=FALSE, cache=TRUE, error=TRUE}
+str(Microdatos)
+
+# Revisar y validar los nombres de las columnas
+names(Microdatos)[1:43]  # Mostrar nombres de las primeras 43 columnas
+
+# Verificar si las columnas 1 a 43 y "DCOM" están presentes en Microdatos
+all(c(1:43, "DCOM") %in% names(Microdatos))
+
+# Verificar si "DCOM" está presente en los nombres
+"DCOM" %in% names(Microdatos)
+
+# Obtener el índice de "DCOM" en los nombres
+grep("DCOM", names(Microdatos))
+
+# Crear un vector con los índices correctos de las columnas necesarias
+columnas_correctas <- c(1:43, 47)  # DCOM se encuentra en la columna 47
+
+# Filtrar y seleccionar datos usando índices
+datos_train <- Microdatos[Microdatos$TRIM %in% c(1, 2, 3), columnas_correctas]
+datos_test <- Microdatos[Microdatos$TRIM == 4, columnas_correctas]
+
+# Verificar valores faltantes en el conjunto de entrenamiento
+colSums(is.na(datos_train))
+
+# Calculamos el pocentaje de Na (missing values)
+porcentaje_na_train <- colSums(is.na(datos_train)) / nrow(datos_train) * 100
+porcentaje_na_test <- colSums(is.na(datos_test)) / nrow(datos_test) * 100
+
+# Definimos el umbral
+umbral <- 60
+
+#Asegurar que DCOM no se elimine
+datos_train <- datos_train[, which(porcentaje_na_train <= umbral)]
+datos_test <- datos_test[, which(porcentaje_na_test <= umbral)]
+
+if (!"DCOM" %in% names(datos_test)) {
+  datos_test$DCOM <- Microdatos$DCOM[Microdatos$TRIM == 4]  # Reintroducir DCOM si falta
+}
+
+# Quitar las los Na
+datos_train <- na.omit(datos_train)
+datos_test <- na.omit(datos_test)
+
+# Quitar las variables con más de 53 niveles
+if (ncol(datos_train) > 0) {
+  datos_train <- datos_train[, sapply(datos_train, function(x) if (is.factor(x)) nlevels(x) <= 53 else TRUE)]
+}
+if (ncol(datos_test) > 0) {
+  datos_test <- datos_test[, sapply(datos_test, function(x) if (is.factor(x)) nlevels(x) <= 53 else TRUE)]
+}
+
+# Verificar que el dataset tiene columnas 
+datos_train <- datos_train[, colSums(is.na(datos_train)) < nrow(datos_train)]
+datos_test <- datos_test[, colSums(is.na(datos_test)) < nrow(datos_test)]
+
+# Ensure that datos_test aligns correctly with datos_train
+columnas_comunes <- intersect(names(datos_train), names(datos_test))
+columnas_comunes <- union(columnas_comunes, "DCOM")
+
+datos_train <- datos_train[, columnas_comunes]
+datos_test <- datos_test[, columnas_comunes]
+
+# Verificar dimensiones
+dim(datos_train)
+dim(datos_test)  
+  
+# Validamos que no queden missings
+anyNA(datos_train)  
+anyNA(datos_test)  
+
+print(dim(datos_train))
+print(dim(datos_test))
+
+"DCOM" %in% names(datos_train)
+"DCOM" %in% names(datos_test)
+
+# Entrenar un Árbol de Regresión
+library(rpart)
+modelo_arbol <- rpart(DCOM ~ ., data = datos_train, method = "anova")
+# Convertir NVIVI en datos_train y datos_test a factores con los mismos niveles
+datos_train$NVIVI <- factor(datos_train$NVIVI)
+datos_test$NVIVI <- factor(datos_test$NVIVI, levels = levels(datos_train$NVIVI))
+
+# Verificar los niveles después de la conversión
+print("Niveles en NVIVI (datos_train):")
+print(levels(datos_train$NVIVI))
+
+print("Niveles en NVIVI (datos_test):")
+print(levels(datos_test$NVIVI))
+
+# Asegurar que todas las variables categóricas en datos_test tengan los mismos niveles que en datos_train
+for (col in names(datos_test)) {
+  if (is.factor(datos_train[[col]]) && is.factor(datos_test[[col]])) {
+    # Convertir los factores en datos_test usando los niveles de datos_train
+    datos_test[[col]] <- factor(datos_test[[col]], levels = levels(datos_train[[col]]))
+    # Reemplazar valores no válidos (fuera de los niveles) por NA
+    datos_test[[col]][is.na(datos_test[[col]])] <- NA
+  }
+}
+
+# Intentar la predicción nuevamente
+tryCatch({
+  pred_arbol <- predict(modelo_arbol, datos_test, na.action = na.pass)
+  mse_arbol <- mean((pred_arbol - datos_test$DCOM)^2, na.rm = TRUE)
+  print(paste("Error cuadrático medio (MSE) del Árbol:", mse_arbol))
+}, error = function(e) {
+  print("Error durante la predicción:")
+  print(e$message)
+})
+
+```
+
+```{r comentarios, message=FALSE, warning=FALSE, cache=TRUE, error=TRUE}
+#Predecir con el Árbol de Regresión
+#pred_arbol <- predict(modelo_arbol, datos_test, na.action = na.pass)
+
+#Calcular el MSE
+#mse_arbol <- mean((pred_arbol - datos_test$DCOM)^2, na.rm = TRUE)
+#print(paste("Error cuadrático medio (MSE) del Árbol:", mse_arbol))
+
+#Entrenar un Modelo de Bosques Aleatorios
+#library(randomForest)
+#modelo_rf <- randomForest(DCOM ~ ., data = datos_train, na.action = na.roughfix)
+
+#Predecir con el modelo de Bosques Aleatorios
+#pred_rf <- predict(modelo_rf, datos_test)
+#mse_rf <- mean((pred_rf - datos_test$DCOM)^2, na.rm = TRUE)
+#print(paste("Error cuadrático medio (MSE) del Bosque Aleatorio:", mse_rf))
+
+#Entrenar un Modelo de Boosting
+#library(xgboost)
+#datos_train_matrix <- as.matrix(datos_train[, -which(names(datos_train) == "DCOM")])
+#datos_test_matrix <- as.matrix(datos_test[, -which(names(datos_test) == "DCOM")])
+
+#modelo_xgb <- xgboost(
+#  data = datos_train_matrix, 
+#  label = datos_train$DCOM,
+#  nrounds = 100,
+#  objective = "reg:squarederror"
+#)
+
+#Predecir con el modelo de Boosting
+#pred_xgb <- predict(modelo_xgb, datos_test_matrix)
+#mse_xgb <- mean((pred_xgb - datos_test$DCOM)^2, na.rm = TRUE)
+#print(paste("Error cuadrático medio (MSE) del Boosting:", mse_xgb))
+```
+
+### Comentarios del ejercicio 3
+
+Los problemas enfrentados en este apartado se deben a las discrepancias entre los niveles de las variables categóricas (factor) en los conjuntos de datos de entrenamiento (datos_train) y prueba (datos_test). Durante el entrenamiento del modelo, las variables categóricas se ajustan con niveles específicos presentes en el conjunto de entrenamiento. Sin embargo, cuando intentamos realizar predicciones con el conjunto de prueba, cualquier nivel no reconocido (que no estuvo en datos_train) genera errores debido a las restricciones del modelo rpart. Para resolver estos problemas, ajustamos los niveles de las variables categóricas en datos_test para que coincidan estrictamente con los de datos_train, reemplazando los valores no válidos con NA o eliminándolos. Esto garantiza que el modelo pueda procesar el conjunto de prueba sin interrupciones y es un paso crítico para mantener la consistencia en la estructura de los datos entre ambos conjuntos. Sin embargo, no hemos podido solucionar el problema del todo porque podría haber causas subyacentes adicionales que no se han abordado completamente. Una posibilidad es que los datos originales contengan inconsistencias en la definición de las variables categóricas entre los conjuntos de entrenamiento y prueba, como formatos diferentes (por ejemplo, texto frente a factores) o valores inesperados no previstos en la etapa de preprocesamiento. Otra causa podría ser que el modelo rpart mantenga internamente una representación estricta de los niveles en las variables categóricas durante el entrenamiento, lo que impide la inclusión de niveles no definidos, incluso si se convierten a NA. Además, puede haber discrepancias en la estructura general de los conjuntos de datos (columnas faltantes o desalineadas) que están generando errores durante la predicción. Es necesario realizar un análisis más profundo de la estructura de los datos, incluyendo una inspección detallada de las variables categóricas en ambos conjuntos, para identificar cualquier problema adicional que pueda estar causando el conflicto.
+

@@ -1,0 +1,96 @@
+---
+title: "Pregunta_4"
+author: "Brian Abad Guadalupe"
+date: "2024-12-19"
+output: html_document
+---
+
+```{r Pregunta_4, message=FALSE, warning=FALSE, cache=TRUE, error=TRUE}
+
+# Cargar datos
+load("C:/Users/ASUS/Desktop/MicrodatosEPA.Rdata")
+library(dplyr)
+library(randomForest)
+library(mice)
+
+# Asegurar que ACT1 es un factor
+Microdatos$ACT1 <- as.factor(Microdatos$ACT1)
+
+# Filtrar datos de entrenamiento y prueba
+datos_train <- Microdatos[Microdatos$TRIM %in% c(1, 2, 3) & Microdatos$ANYO == 2024, ]
+datos_test <- Microdatos[Microdatos$TRIM == 4 & Microdatos$ANYO == 2024, ]
+
+# Paso 1: Verificar columnas y eliminar las no deseadas
+to_remove <- c("FACTOREL", "RELLB4", "SIDAC2", "SIDAC1", "SIDI1", "OFEM", "PRELLB3", "RELLB3", 
+               "AUSENT", "PRONA1", "AYUDFA", "RELLB2", "EDADNum", "RELPP1", "SEXO1", "NPADRE", 
+               "NMADRE", "RELLMILI", "ECIV1", "RELLB1", "CURSR", "CURSNR")
+
+# Asegurar que ACT1 está presente desde el inicio
+datos_train <- Microdatos[Microdatos$TRIM %in% c(1, 2, 3), ]
+datos_test <- Microdatos[Microdatos$TRIM == 4, ]
+
+# Validar que ACT1 esté presente
+if (!"ACT1" %in% names(datos_train) || !"ACT1" %in% names(datos_test)) {
+  stop("La columna ACT1 no está presente en los datos.")
+}
+
+# Eliminar columnas no deseadas
+datos_train <- datos_train[, !names(datos_train) %in% to_remove]
+datos_test <- datos_test[, !names(datos_test) %in% to_remove]
+
+# Convertir columnas de tipo character a factor
+for (col in names(datos_train)) {
+  if (is.character(datos_train[[col]])) {
+    datos_train[[col]] <- as.factor(datos_train[[col]])
+  }
+}
+
+for (col in names(datos_test)) {
+  if (is.character(datos_test[[col]])) {
+    datos_test[[col]] <- as.factor(datos_test[[col]])
+  }
+}
+
+# Validar dimensiones
+print(dim(datos_train))
+print(dim(datos_test))
+
+# Paso 2: Identificar y eliminar columnas categóricas con más de 53 niveles
+categorias_altas <- sapply(datos_train, function(x) is.factor(x) && nlevels(x) > 53)
+columnas_altas <- names(categorias_altas[categorias_altas])
+
+# Informar columnas eliminadas
+print(paste("Columnas categóricas con más de 53 niveles eliminadas:", paste(columnas_altas, collapse = ", ")))
+
+# Eliminar estas columnas de datos_train y datos_test
+datos_train <- datos_train[, !names(datos_train) %in% columnas_altas]
+datos_test <- datos_test[, !names(datos_test) %in% columnas_altas]
+
+# Verificar dimensiones después del ajuste
+print(dim(datos_train))
+print(dim(datos_test))
+
+```
+
+# Paso 4: Entrenar el modelo Random Forest
+library(randomForest)
+Pregunta_4 <- randomForest(ACT1 ~ ., data = datos_train, ntree = 100)
+
+# Paso 5: Importancia de las variables
+varImpPlot(Pregunta_4)
+
+# Paso 6: Predicción en datos_test
+predicciones <- predict(Pregunta_4, datos_test)
+
+# Paso 7: Matriz de confusión
+matriz_confusion <- table(Predicho = predicciones, Observado = datos_test$ACT1)
+
+# Paso 8: Calcular precisión
+precision <- sum(diag(matriz_confusion)) / sum(matriz_confusion)
+print(paste("Precisión del modelo:", round(precision * 100, 2), "%"))
+
+# Mostrar matriz de confusión
+print(matriz_confusion)
+
+```
+
